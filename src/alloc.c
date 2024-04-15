@@ -17,25 +17,37 @@ static free_block *HEAD = NULL; /**< Pointer to the first element of the free li
  * @param size The size of the first new split block
  * @return A pointer to the first block or NULL if the block cannot be split
  */
-void *split(free_block *block, size_t size)
 
 // void *split(free_block *block, int size)
+void *split(free_block *block, size_t size)
 {
-    if ((block->size < size + sizeof(free_block)))
+    // Check if the current block is large enough to split
+    if (block->size < size + sizeof(free_block))
     {
+        printf("Split failed: Current block size (%zu) is not large enough for split.\n", block->size);
+        printf("Requested split size: %zu\n", size);
         return NULL;
     }
 
-    void *split_pnt = (char *)block + size + sizeof(free_block);
-    free_block *new_block = (free_block *)split_pnt;
+    // Calculate the split point, ensuring proper alignment
+    void *split_point = (char *)block + size + sizeof(free_block);
+    printf("Split point: %p\n", split_point);
 
+    // Create a new block from the remaining memory after the split
+    free_block *new_block = (free_block *)split_point;
     new_block->size = block->size - size - sizeof(free_block);
     new_block->next = block->next;
 
+    // Resize the original block to accommodate the allocation
     block->size = size;
 
-    return block;
+    printf("Original block size after split: %zu\n", block->size);
+    printf("New block size after split: %zu\n", new_block->size);
+
+    // Return a pointer to the allocated block
+    return new_block;
 }
+
 
 /**
  * Find the previous neighbor of a block
@@ -157,7 +169,7 @@ void *coalesce(free_block *block)
  */
 void *do_alloc(size_t size)
 {
-    void *ptr = sbrk(size + sizeof(header)); // Fixed: use '+' instead of '='
+    void *ptr = sbrk(size += sizeof(header)); // Fixed: use '+' instead of '='
     if (ptr == (void *)-1)
     {
         return NULL;
@@ -190,7 +202,9 @@ void *tumalloc(size_t size)
         {
             if (size + sizeof(header) <= curr->size)
             {
+                printf("Before split: Current block size: %zu\n", curr->size);
                 void *ptr = split(curr, size + sizeof(header));
+                printf("After split: Pointer returned by split: %p\n", ptr);
                 if (ptr == NULL)
                 {
                     return NULL;
@@ -218,6 +232,7 @@ void *tumalloc(size_t size)
     void *ptr = do_alloc(size);
     return ptr;
 }
+
 
 /**
  * Allocates and initializes a list of elements for the end user
@@ -269,7 +284,7 @@ void tufree(void *ptr)
 {
     header *hdr = (header *)ptr - 1;
     printf("%d\n", hdr->magic);
-    printf("supposed to be: 305419896 \n");
+    printf("supposed to be: 19088743 \n");
     if (hdr->magic == 0x1234567)
     {
         printf("Freeing memory\n");
