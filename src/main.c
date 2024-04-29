@@ -2,8 +2,6 @@
 
 #include <stdio.h>
 
-// gcc -o main main.c alloc.c
-// ./main
 /**
  * A simple linked list implementation to test the allocator
  */
@@ -21,17 +19,14 @@ typedef struct node
  */
 node *list_new(int data)
 {
-    printf("at list_new\n");
     // Allocate memory for the list
     node *list = (node *)tumalloc(sizeof(node));
-    printf("allocated memory for list failed \n");
     // Check if the allocation was successful
     if (list == NULL)
     {
-        printf("list is null for list_new \n");
         return NULL;
     }
-    printf("initialized list\n");
+
     // Initialize the list
     list->next = NULL;
     list->data = data;
@@ -78,10 +73,9 @@ void list_add(node *list, int data)
 int list_remove(node **list, int index)
 {
     // Check if the list is empty
-    printf("at list_remove\n");
     if (*list == NULL)
     {
-        return -2;
+        return -1;
     }
 
     // Remove the first element if the index is 0
@@ -138,27 +132,23 @@ void list_remove_all(node *list)
  */
 void list_print_all(node *list)
 {
-    printf("\nlisting\n");
     node *curr = list;
     while (curr)
     {
         printf("%d\n", curr->data);
         curr = curr->next;
     }
-    printf("end of listing\n");
 }
 
 // The head of the list
-static node *HEAD = NULL; // if = null then freelist is empty?
-#define PRINT_HEAD_NULL printf("\n setting HEAD to null\n")
+static node *HEAD = NULL;
+
 /**
  * Main function to test the allocator
  */
 int main(int argc, char **argv)
 {
     // Allocate some memory
-    printf("succssfully started program\n");
-
     int *thing = tumalloc(5 * sizeof(int));
 
     // Check if the allocation was successful
@@ -166,10 +156,6 @@ int main(int argc, char **argv)
     {
         printf("Failed to allocate memory\n");
         return 1;
-    }
-    else
-    {
-        printf("allocation success\n");
     }
 
     // Set some values in the allocated memory
@@ -181,7 +167,7 @@ int main(int argc, char **argv)
 
     // Print the first value
     printf("%d\n", *thing);
-    printf("printed first value at thing address ^\n");
+
     // Allocate memory for an int array
     int *other_thing = tumalloc(5 * sizeof(int));
 
@@ -191,13 +177,9 @@ int main(int argc, char **argv)
         printf("Failed to allocate memory\n");
         return 1;
     }
-    else
-    {
-        printf("allocation success\n");
-    }
 
     // Set some values in the allocated memory
-    other_thing[0] = 55;
+    other_thing[0] = 5;
     other_thing[1] = 10;
     other_thing[2] = 20;
     other_thing[3] = 30;
@@ -205,24 +187,17 @@ int main(int argc, char **argv)
 
     // Print the first value
     printf("%d\n", *other_thing);
-    printf("printed first value at other_thing address ^\n");
-
     // Free the allocated memory
     tufree(thing);
     tufree(other_thing);
-    printf("freed thing and other_thing\n");
+
     // Create a new list
     HEAD = list_new(5);
-    printf("tried creating a new list\n");
     // Check if the allocation was successful
     if (HEAD == NULL)
     {
         printf("Failed to allocate memory\n");
         return 1;
-    }
-    else
-    {
-        printf("allocation success\n");
     }
 
     // Add some elements to the list
@@ -232,7 +207,6 @@ int main(int argc, char **argv)
     list_add(HEAD, 40);
 
     // Print all elements in the list
-
     list_print_all(HEAD);
 
     // Remove an element from the list
@@ -243,10 +217,6 @@ int main(int argc, char **argv)
     {
         printf("Failed to remove element\n");
         return 1;
-    }
-    else
-    {
-        printf("successfully removed element\n");
     }
 
     // Print all elements in the list
@@ -264,13 +234,9 @@ int main(int argc, char **argv)
         printf("Failed to allocate memory\n");
         return 1;
     }
-    else
-    {
-        printf("successfully allocated memory\n");
-    }
 
     // Set some values in the allocated memory
-    more_things[0] = 555;
+    more_things[0] = 5;
     more_things[1] = 10;
     more_things[2] = 20;
     more_things[3] = 30;
@@ -281,12 +247,11 @@ int main(int argc, char **argv)
     more_things[9] = 90;
 
     // Print all elements in the list
-    printf("printing more_things\n");
     for (int i = 0; i < 10; i++)
     {
         printf("%d\n", more_things[i]);
     }
-    printf("end of printing more_things\n");
+
     // Reallocate memory
     int *bigger_things = turealloc(more_things, 20 * sizeof(int));
 
@@ -295,10 +260,6 @@ int main(int argc, char **argv)
     {
         printf("Failed to allocate memory\n");
         return 1;
-    }
-    else
-    {
-        printf("successfully reallocated memory\n");
     }
 
     // Set some values in the allocated memory
@@ -315,6 +276,5 @@ int main(int argc, char **argv)
 
     // Free the allocated memory
     tufree(bigger_things);
-
     return 0;
 }

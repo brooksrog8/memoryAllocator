@@ -5,11 +5,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdint.h>
 
 #define ALIGNMENT 16 /**< The alignment of the memory blocks */
 
-static free_block *HEAD = NULL; /**< Pointer to the first element of the free list */
-
+free_block *HEAD = NULL; /**< Pointer to the first element of the free list */
+int freed_count = 0;
 /**
  * Split a free block into two blocks
  *
@@ -17,9 +18,7 @@ static free_block *HEAD = NULL; /**< Pointer to the first element of the free li
  * @param size The size of the first new split block
  * @return A pointer to the first block or NULL if the block cannot be split
  */
-void *split(free_block *block, size_t size)
-
-// void *split(free_block *block, int size)
+void *split(free_block *block, int size)
 {
     if ((block->size < size + sizeof(free_block)))
     {
@@ -83,19 +82,30 @@ free_block *find_next(free_block *block)
  */
 void remove_free_block(free_block *block)
 {
-    free_block *curr = HEAD;
-    if (curr == block)
+    // Check if the free list is empty
+    if (HEAD == NULL)
     {
-        HEAD = block->next;
+        return; // Nothing to remove
+    }
+
+    // If the block to remove is the first block in the list
+    if (HEAD == block)
+    {
+        HEAD = block->next; // Update HEAD to skip over the removed block
         return;
     }
+
+    // Otherwise, traverse the list to find the block
+    free_block *prev = HEAD;
+    free_block *curr = HEAD->next;
     while (curr != NULL)
     {
-        if (curr->next == block)
+        if (curr == block)
         {
-            curr->next = block->next;
+            prev->next = curr->next; // Update the next pointer of the previous block
             return;
         }
+        prev = curr;
         curr = curr->next;
     }
 }
@@ -155,20 +165,35 @@ void *coalesce(free_block *block)
  * @param size The amount of memory to allocate
  * @return A pointer to the allocated memory
  */
+/**
+ * Call sbrk to get memory from the OS
+ *
+ * @param size The amount of memory to allocate
+ * @return A pointer to the allocated memory
+ */
 void *do_alloc(size_t size)
 {
-    void *ptr = sbrk(size + sizeof(header)); // Fixed: use '+' instead of '='
+    void *ptr = sbrk((intptr_t)(size + sizeof(header)));
     if (ptr == (void *)-1)
     {
         return NULL;
     }
-    header *hdr = (header *)ptr;
+
+    void *aligned = (void *)((intptr_t)ptr);
+
+    header *hdr = (header *)aligned;
     hdr->size = size;
-    hdr->magic = 0x1234567;
+    hdr->magic = (int)0xDEADBEEF;
 
     return hdr + 1;
 }
 
+/**
+ * Allocates memory for the end user
+ *
+ * @param size The amount of memory to allocate
+ * @return A pointer to the requested block of memory
+ */
 /**
  * Allocates memory for the end user
  *
@@ -184,39 +209,32 @@ void *tumalloc(size_t size)
     }
     else
     {
-        printf("head is not null\n");
         free_block *curr = HEAD;
         while (curr != NULL)
         {
-            if (size + sizeof(header) <= curr->size)
+            if (curr->size >= size + sizeof(header))
             {
-                void *ptr = split(curr, size + sizeof(header));
+                void *ptr = split(curr, (int)(size + sizeof(header)));
                 if (ptr == NULL)
                 {
                     return NULL;
                 }
-                // Debugging statement to check the validity of ptr
-                printf("Pointer before remove_free_block: %p\n", ptr);
-                // Check if ptr is within the bounds of the memory region managed by your allocator
-                if (ptr < (void *)HEAD || ptr >= (void *)(sbrk(0)))
-                {
-                    printf("Error: Invalid memory address returned by split.\n");
-                    return NULL;
-                }
-                remove_free_block((free_block *)ptr);
-                //////////////////////
+                HEAD = curr;
+                remove_free_block(ptr);
+
                 header *hdr = (header *)ptr;
                 hdr->size = size;
-                hdr->magic = 0x1234567;
+                hdr->magic = (int)0xDEADBEEF;
 
+                // Returns the address immediately after the header
                 return hdr + 1;
             }
             curr = curr->next;
         }
+        // Could not find big enough slot, ask for more.
+        void *ptr = do_alloc(size);
+        return ptr;
     }
-    printf("head is not null 2\n");
-    void *ptr = do_alloc(size);
-    return ptr;
 }
 
 /**
@@ -251,12 +269,16 @@ void *turealloc(void *ptr, size_t new_size)
     if (new_ptr != NULL)
     {
         // Copy data from old pointer to new pointer
+
         header *hdr = (header *)ptr - 1;
         size_t copy_size = hdr->size < new_size ? hdr->size : new_size;
         memcpy(new_ptr, ptr, copy_size);
+
         // Free old memory block
+
         tufree(ptr);
     }
+
     return new_ptr;
 }
 
@@ -265,32 +287,35 @@ void *turealloc(void *ptr, size_t new_size)
  *
  * @param ptr Pointer to the allocated piece of memory
  */
+
 void tufree(void *ptr)
 {
+    // Cast ptr to header pointer and move back by 1 to get the header
+
     header *hdr = (header *)ptr - 1;
-    printf("%d\n", hdr->magic);
-    printf("supposed to be: 305419896 \n");
-    if (hdr->magic == 0x1234567)
+
+    // Check if magic number matches
+    if (hdr->magic == 0xDEADBEEF)
     {
-        printf("Freeing memory\n");
-        // Casting ptr to a free_block pointer
-        free_block *new_block = (free_block *)hdr;
 
-        // Update new_block size
-        new_block->size = hdr->size;
+        // Cast header pointer to free_block pointer
+        free_block *block = (free_block *)hdr;
 
-        // Update new_block next
-        new_block->next = HEAD;
+        // Set free block size
+        block->size = hdr->size;
 
-        // Update HEAD to point to new_block
-        HEAD = new_block;
+        // Set next of free block to current HEAD
+        block->next = HEAD;
 
-        // Coalesce adjacent free blocks
-        coalesce(new_block);
-        printf("Memory freed\n");
+        // Update HEAD to point to this free block
+        HEAD = block;
+
+        // Coalesce neighboring free blocks
+        coalesce(block);
     }
     else
     {
+        // Print error message and abort if magic number doesn't match
         printf("MEMORY CORRUPTION DETECTED\n");
         abort();
     }
