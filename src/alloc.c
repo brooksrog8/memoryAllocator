@@ -9,7 +9,7 @@
 
 #define ALIGNMENT 16 /**< The alignment of the memory blocks */
 
-free_block *HEAD = NULL; /**< Pointer to the first element of the free list */
+static free_block *HEAD = NULL; /**< Pointer to the first element of the free list */
 int freed_count = 0;
 /**
  * Split a free block into two blocks
@@ -82,30 +82,19 @@ free_block *find_next(free_block *block)
  */
 void remove_free_block(free_block *block)
 {
-    // Check if the free list is empty
-    if (HEAD == NULL)
+    free_block *curr = HEAD;
+    if (curr == block)
     {
-        return; // Nothing to remove
-    }
-
-    // If the block to remove is the first block in the list
-    if (HEAD == block)
-    {
-        HEAD = block->next; // Update HEAD to skip over the removed block
+        HEAD = block->next;
         return;
     }
-
-    // Otherwise, traverse the list to find the block
-    free_block *prev = HEAD;
-    free_block *curr = HEAD->next;
     while (curr != NULL)
     {
-        if (curr == block)
+        if (curr->next == block)
         {
-            prev->next = curr->next; // Update the next pointer of the previous block
+            curr->next = block->next;
             return;
         }
-        prev = curr;
         curr = curr->next;
     }
 }

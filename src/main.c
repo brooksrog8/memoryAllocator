@@ -21,6 +21,7 @@ node *list_new(int data)
 {
     // Allocate memory for the list
     node *list = (node *)tumalloc(sizeof(node));
+
     // Check if the allocation was successful
     if (list == NULL)
     {
@@ -187,12 +188,14 @@ int main(int argc, char **argv)
 
     // Print the first value
     printf("%d\n", *other_thing);
+
     // Free the allocated memory
     tufree(thing);
     tufree(other_thing);
 
     // Create a new list
     HEAD = list_new(5);
+
     // Check if the allocation was successful
     if (HEAD == NULL)
     {
@@ -276,5 +279,6 @@ int main(int argc, char **argv)
 
     // Free the allocated memory
     tufree(bigger_things);
+
     return 0;
 }
